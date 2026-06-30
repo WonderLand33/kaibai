@@ -1,14 +1,11 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+
 import 'app_state.dart';
 import 'notification_service.dart';
 import 'settings_screen.dart';
+import 'v2_theme.dart';
 
-// 正常模式金色，隐私模式紫色
-Color _accent(bool privacy) =>
-    privacy ? const Color(0xFFA78BFA) : const Color(0xFFFFD700);
-
-// 隐私模式下把"薪"替换为"*"
 String _s(String text, bool privacy) =>
     privacy ? text.replaceAll('薪', '*') : text;
 
@@ -31,31 +28,20 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: Stack(
-        children: [
-          _buildBg(),
-          SafeArea(
-            child: Column(
-              children: [
-                _buildAppBar(context),
-                Expanded(child: _buildBody(context)),
-              ],
+      body: V2Background(
+        child: Stack(
+          children: [
+            SafeArea(
+              bottom: false,
+              child: Column(
+                children: [
+                  _buildAppBar(context),
+                  Expanded(child: _buildBody(context)),
+                ],
+              ),
             ),
-          ),
-          _buildAlipayOverlay(context),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildBg() {
-    return Container(
-      decoration: const BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [Color(0xFF0A0A0A), Color(0xFF141414), Color(0xFF0A0A0A)],
-          stops: [0.0, 0.5, 1.0],
+            _buildBroadcastOverlay(context),
+          ],
         ),
       ),
     );
@@ -63,86 +49,63 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Widget _buildAppBar(BuildContext context) {
     final state = context.watch<AppState>();
-    final ac = _accent(state.privacyMode);
-
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(20, 8, 12, 8),
+    return Container(
+      padding: const EdgeInsets.fromLTRB(18, 10, 18, 12),
+      decoration: const BoxDecoration(
+        color: V2Colors.background,
+        border: Border(bottom: BorderSide(color: V2Colors.black, width: 4)),
+        boxShadow: [
+          BoxShadow(color: V2Colors.black, offset: Offset(8, 8), blurRadius: 0),
+        ],
+      ),
       child: Row(
         children: [
-          // Logo 颜色跟随主题
-          AnimatedDefaultTextStyle(
-            duration: const Duration(milliseconds: 300),
-            style: TextStyle(
-              fontSize: 24,
-              fontWeight: FontWeight.w900,
-              color: ac,
-              letterSpacing: 2,
-            ),
-            child: const Text('开摆'),
-          ),
-          const SizedBox(width: 8),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-            decoration: BoxDecoration(
-              color: const Color(0xFF1E1E1E),
-              borderRadius: BorderRadius.circular(20),
-              border: Border.all(color: const Color(0xFF333333)),
-            ),
+          const Icon(Icons.menu_rounded, color: V2Colors.pink, size: 28),
+          const SizedBox(width: 10),
+          Expanded(
             child: Text(
-              _s('混底薪神器', state.privacyMode),
-              style: const TextStyle(fontSize: 10, color: Color(0xFF888888)),
+              '开摆混底薪',
+              textAlign: TextAlign.center,
+              style: V2Text.headline.copyWith(fontSize: 23),
             ),
           ),
-          const Spacer(),
-          // 防偷窥切换按钮
           GestureDetector(
             onTap: state.togglePrivacy,
-            child: AnimatedContainer(
-              duration: const Duration(milliseconds: 250),
-              padding:
-                  const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
               decoration: BoxDecoration(
-                color: state.privacyMode
-                    ? ac.withValues(alpha: 0.15)
-                    : const Color(0xFF1E1E1E),
-                borderRadius: BorderRadius.circular(20),
-                border: Border.all(
-                  color: state.privacyMode
-                      ? ac.withValues(alpha: 0.6)
-                      : const Color(0xFF333333),
-                ),
+                color: state.privacyMode ? V2Colors.cyan : V2Colors.surface,
+                borderRadius: BorderRadius.circular(999),
+                border: Border.all(color: V2Colors.black, width: 3),
               ),
               child: Row(
-                mainAxisSize: MainAxisSize.min,
                 children: [
                   Icon(
                     state.privacyMode
                         ? Icons.visibility_off_rounded
                         : Icons.visibility_rounded,
-                    size: 14,
-                    color: state.privacyMode ? ac : const Color(0xFF666666),
+                    color: state.privacyMode ? Colors.black : V2Colors.muted,
+                    size: 16,
                   ),
                   const SizedBox(width: 4),
                   Text(
                     state.privacyMode ? '豆' : '元',
-                    style: TextStyle(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w700,
-                      color:
-                          state.privacyMode ? ac : const Color(0xFF666666),
+                    style: V2Text.mono.copyWith(
+                      color: state.privacyMode ? Colors.black : V2Colors.muted,
                     ),
                   ),
                 ],
               ),
             ),
           ),
-          IconButton(
-            onPressed: () => Navigator.push(
-              context,
-              MaterialPageRoute(builder: (_) => const SettingsScreen()),
+          const SizedBox(width: 8),
+          GestureDetector(
+            onTap: () => _openSettings(context),
+            child: const Icon(
+              Icons.settings_rounded,
+              color: V2Colors.pink,
+              size: 28,
             ),
-            icon: const Icon(Icons.settings_rounded,
-                color: Color(0xFF555555), size: 22),
           ),
         ],
       ),
@@ -152,304 +115,249 @@ class _HomeScreenState extends State<HomeScreen> {
   Widget _buildBody(BuildContext context) {
     final state = context.watch<AppState>();
     return SingleChildScrollView(
-      padding: const EdgeInsets.symmetric(horizontal: 24),
+      padding: EdgeInsets.fromLTRB(
+        22,
+        24,
+        22,
+        MediaQuery.of(context).padding.bottom + 32,
+      ),
       child: Column(
         children: [
-          const SizedBox(height: 4),
-          _buildStatusBanner(state),
+          _buildStatusHero(state),
+          const SizedBox(height: 22),
+          _buildTickerWindow(state),
+          const SizedBox(height: 22),
+          _buildPrimaryAction(context, state),
           const SizedBox(height: 20),
-          _buildPandaSection(state),
-          const SizedBox(height: 20),
-          _buildAmountCard(state),
-          const SizedBox(height: 16),
-          _buildStatsRow(state),
-          const SizedBox(height: 28),
-          _buildButtons(context, state),
+          _buildStatsGrid(state),
           const SizedBox(height: 24),
+          const V2Sticker(text: '躺着也能赚钱', angle: -0.11),
         ],
       ),
     );
   }
 
-  Widget _buildStatusBanner(AppState state) {
-    final (text, color) = switch (state.status) {
-      WorkStatus.idle => ('还没开机，先摸会儿鱼？🐟', const Color(0xFF555555)),
-      WorkStatus.working => (_s('混底薪中 🐼', state.privacyMode), const Color(0xFF22C55E)),
-      WorkStatus.offWork => ('美滋滋 🎉', const Color(0xFFFFD700)),
-    };
-
-    return AnimatedContainer(
-      duration: const Duration(milliseconds: 400),
-      width: double.infinity,
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 11),
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.08),
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: color.withValues(alpha: 0.25)),
-      ),
-      child: Text(
-        text,
-        textAlign: TextAlign.center,
-        style: TextStyle(
-          color: color,
-          fontSize: 13,
-          fontWeight: FontWeight.w600,
-          letterSpacing: 0.3,
-        ),
-      ),
-    );
-  }
-
-  Widget _buildPandaSection(AppState state) {
+  Widget _buildStatusHero(AppState state) {
+    final isWorking = state.status == WorkStatus.working;
     final isOffWork = state.status == WorkStatus.offWork;
     final imagePath = isOffWork
         ? 'assets/images/关机下班底薪到手.png'
         : 'assets/images/开机开始混底薪.png';
 
-    return Center(
-      child: AnimatedScale(
-        scale: state.status == WorkStatus.working ? 1.03 : 1.0,
-        duration: const Duration(milliseconds: 400),
-        child: Container(
-          width: 160,
-          height: 160,
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(24),
-            boxShadow: state.status == WorkStatus.working
-                ? [
-                    BoxShadow(
-                      color: const Color(0xFF22C55E).withValues(alpha: 0.25),
-                      blurRadius: 24,
-                      spreadRadius: 4,
-                    )
-                  ]
-                : null,
-          ),
-          child: ClipRRect(
-            borderRadius: BorderRadius.circular(24),
-            child: Image.asset(imagePath, fit: BoxFit.cover),
-          ),
-        ),
-      ),
-    );
-  }
+    final label = switch (state.status) {
+      WorkStatus.idle => '准备摸鱼',
+      WorkStatus.working => '摸鱼进行中',
+      WorkStatus.offWork => '已下班',
+    };
 
-  Widget _buildAmountCard(AppState state) {
-    final amount = state.currentAmount;
-    final isWorking = state.status == WorkStatus.working;
-    final ac = _accent(state.privacyMode);
-
-    return AnimatedContainer(
-      duration: const Duration(milliseconds: 300),
-      width: double.infinity,
-      padding: const EdgeInsets.symmetric(vertical: 24, horizontal: 20),
-      decoration: BoxDecoration(
-        color: const Color(0xFF141414),
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(
-          color: isWorking
-              ? ac.withValues(alpha: 0.35)
-              : const Color(0xFF222222),
-        ),
-        boxShadow: isWorking
-            ? [
-                BoxShadow(
-                  color: ac.withValues(alpha: 0.06),
-                  blurRadius: 20,
-                  spreadRadius: 2,
-                )
-              ]
-            : null,
-      ),
-      child: Column(
+    return V2Card(
+      color: isWorking ? V2Colors.pink : V2Colors.surface,
+      padding: const EdgeInsets.all(14),
+      radius: 24,
+      child: Stack(
+        clipBehavior: Clip.none,
         children: [
-          Text(
-            '今日已到账',
-            style: TextStyle(
-              fontSize: 12,
-              color: Colors.white.withValues(alpha: 0.4),
-              letterSpacing: 1.5,
+          Container(
+            height: 220,
+            decoration: BoxDecoration(
+              color: V2Colors.beige,
+              borderRadius: BorderRadius.circular(18),
+              border: Border.all(color: V2Colors.black, width: 4),
+            ),
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(14),
+              child: Image.asset(
+                imagePath,
+                width: double.infinity,
+                fit: BoxFit.cover,
+              ),
             ),
           ),
-          const SizedBox(height: 10),
-          _TickerAmount(
-            amount: amount,
-            color: ac,
-            privacyMode: state.privacyMode,
+          Positioned(
+            left: 12,
+            top: 18,
+            child: V2Sticker(
+              text: _s(isWorking ? '混底薪中' : '开机摸鱼', state.privacyMode),
+              color: V2Colors.cyan,
+              angle: -0.08,
+              fontSize: 18,
+            ),
+          ),
+          Positioned(
+            left: 18,
+            bottom: 18,
+            child: V2Sticker(
+              text: label,
+              color: V2Colors.yellow,
+              angle: 0.06,
+              fontSize: 14,
+            ),
+          ),
+          Positioned(
+            right: -8,
+            top: -8,
+            child: _RoundSticker(
+              text: isWorking ? '📈' : '🐟',
+              color: isWorking ? V2Colors.green : V2Colors.pink,
+            ),
           ),
         ],
       ),
     );
   }
 
-  Widget _buildStatsRow(AppState state) {
-    // 隐私模式下"时薪"→"时豆"
-    final rateLabel = _s('当前时薪', state.privacyMode);
+  Widget _buildTickerWindow(AppState state) {
+    return V2Window(
+      title: _s('今日已到账', state.privacyMode),
+      titleColor: V2Colors.pink,
+      child: Column(
+        children: [
+          _TickerAmount(
+            amount: state.currentAmount,
+            privacyMode: state.privacyMode,
+          ),
+          const SizedBox(height: 12),
+          Text(
+            _statusCopy(state),
+            textAlign: TextAlign.center,
+            style: V2Text.body.copyWith(color: V2Colors.cyanSoft),
+          ),
+        ],
+      ),
+    );
+  }
 
-    return Row(
+  Widget _buildStatsGrid(AppState state) {
+    return GridView.count(
+      crossAxisCount: 2,
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
+      mainAxisSpacing: 16,
+      crossAxisSpacing: 16,
+      childAspectRatio: 1.15,
       children: [
-        Expanded(
-          child: _statCard(
-            emoji: '⚡',
-            label: rateLabel,
-            value: state.fmtRate(state.hourlyRate),
-            color: const Color(0xFF60A5FA),
-          ),
+        _StatTile(
+          icon: Icons.bolt_rounded,
+          label: _s('当前时薪', state.privacyMode),
+          value: state.fmtRate(state.hourlyRate),
+          color: V2Colors.cyan,
+          rotation: -0.025,
         ),
-        const SizedBox(width: 12),
-        Expanded(
-          child: _statCard(
-            emoji: '⏱️',
-            label: _s('混底薪时长', state.privacyMode),
-            value: state.durationStr,
-            color: const Color(0xFFA78BFA),
-          ),
+        _StatTile(
+          icon: Icons.timer_rounded,
+          label: _s('混底薪时长', state.privacyMode),
+          value: state.durationStr,
+          color: V2Colors.pink,
+          rotation: 0.025,
+        ),
+        _StatTile(
+          icon: Icons.trending_up_rounded,
+          label: '摸鱼收益率',
+          value: state.status == WorkStatus.working ? '420%' : '0%',
+          color: V2Colors.yellow,
+          rotation: 0.018,
+        ),
+        _StatTile(
+          icon: Icons.psychology_alt_rounded,
+          label: '老板状态',
+          value: state.status == WorkStatus.working ? '蒙在鼓里' : '很安全',
+          color: V2Colors.green,
+          rotation: -0.018,
         ),
       ],
     );
   }
 
-  Widget _statCard({
-    required String emoji,
-    required String label,
-    required String value,
-    required Color color,
-  }) {
-    return Container(
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: const Color(0xFF141414),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: const Color(0xFF252525)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
+  Widget _buildPrimaryAction(BuildContext context, AppState state) {
+    if (state.status == WorkStatus.working) {
+      return _SlideToStop(
+        label: _s('滑动关机，底薪到手', state.privacyMode),
+        onConfirmed: () {
+          final summary = state.stopWork();
+          _showSummaryDialog(context, summary);
+        },
+      );
+    }
+
+    final hasSetup = state.hasValidSettings;
+    return Column(
+      children: [
+        V2Pressable(
+          onTap: () {
+            if (!hasSetup) {
+              _openSettings(context);
+            } else {
+              state.startWork();
+            }
+          },
+          color: V2Colors.green,
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Text(emoji, style: const TextStyle(fontSize: 13)),
-              const SizedBox(width: 4),
-              Text(
-                label,
-                style: TextStyle(
-                  fontSize: 11,
-                  color: Colors.white.withValues(alpha: 0.4),
+              const Icon(
+                Icons.power_settings_new_rounded,
+                color: Colors.black,
+                size: 28,
+              ),
+              const SizedBox(width: 12),
+              Flexible(
+                child: Text(
+                  _s(hasSetup ? '开机混底薪' : '先设置月薪', state.privacyMode),
+                  textAlign: TextAlign.center,
+                  style: V2Text.headline.copyWith(
+                    color: Colors.black,
+                    fontSize: 24,
+                  ),
                 ),
               ),
             ],
           ),
-          const SizedBox(height: 6),
-          Text(
-            value,
-            style: TextStyle(
-                fontSize: 14, fontWeight: FontWeight.w700, color: color),
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
+        ),
+        if (state.status == WorkStatus.offWork) ...[
+          const SizedBox(height: 18),
+          V2Pressable(
+            onTap: state.resetForNewDay,
+            color: V2Colors.cyan,
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            radius: 14,
+            child: Text(
+              '明天继续自嗨',
+              textAlign: TextAlign.center,
+              style: V2Text.title.copyWith(color: Colors.black, fontSize: 17),
+            ),
           ),
         ],
-      ),
-    );
-  }
-
-  Widget _buildButtons(BuildContext context, AppState state) {
-    return Column(
-      children: [
-        if (state.status == WorkStatus.idle ||
-            state.status == WorkStatus.offWork) ...[
-          _startButton(context, state),
-          if (state.status == WorkStatus.offWork) ...[
-            const SizedBox(height: 12),
-            _resetButton(state),
-          ],
-        ],
-        if (state.status == WorkStatus.working) _stopButton(context, state),
       ],
     );
   }
 
-  Widget _startButton(BuildContext context, AppState state) {
-    final hasSetup = state.hasValidSettings;
-    return SizedBox(
-      width: double.infinity,
-      height: 56,
-      child: ElevatedButton(
-        onPressed: () {
-          if (!hasSetup) {
-            Navigator.push(
-              context,
-              MaterialPageRoute(builder: (_) => const SettingsScreen()),
-            );
-          } else {
-            state.startWork();
-          }
-        },
-        style: ElevatedButton.styleFrom(
-          backgroundColor: const Color(0xFF22C55E),
-          foregroundColor: Colors.white,
-          shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(16)),
-          elevation: 0,
-        ),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            const Icon(Icons.power_settings_new_rounded, size: 20),
-            const SizedBox(width: 8),
-            Text(
-              _s(hasSetup ? '开机，开始混底薪' : '先设置月薪，再混底薪 →', state.privacyMode),
-              style: const TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.w800,
-                letterSpacing: 0.5,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _stopButton(BuildContext context, AppState state) {
-    return _SlideToStop(
-      label: _s('滑动下班，底薪到手', state.privacyMode),
-      onConfirmed: () {
-        final summary = state.stopWork();
-        _showSummaryDialog(context, summary);
-      },
-    );
-  }
-
-  Widget _resetButton(AppState state) {
-    return SizedBox(
-      width: double.infinity,
-      height: 44,
-      child: OutlinedButton(
-        onPressed: state.resetForNewDay,
-        style: OutlinedButton.styleFrom(
-          side: const BorderSide(color: Color(0xFF333333)),
-          shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(12)),
-        ),
-        child: const Text(
-          '明天继续自嗨 🐼',
-          style: TextStyle(color: Color(0xFF666666), fontSize: 14),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildAlipayOverlay(BuildContext context) {
+  Widget _buildBroadcastOverlay(BuildContext context) {
     return ValueListenableBuilder<HourlyPayload?>(
       valueListenable: NotificationService.instance.inAppNotif,
       builder: (context, payload, _) {
         if (payload == null) return const SizedBox.shrink();
         return Positioned(
-          top: MediaQuery.of(context).padding.top + 8,
-          left: 16,
-          right: 16,
-          child: _AlipayBanner(payload: payload),
+          top: MediaQuery.of(context).padding.top + 14,
+          left: 18,
+          right: 18,
+          child: _BroadcastBanner(payload: payload),
         );
       },
+    );
+  }
+
+  String _statusCopy(AppState state) {
+    return switch (state.status) {
+      WorkStatus.idle => _s('老板还不知道你准备开始混底薪。', state.privacyMode),
+      WorkStatus.working => _s('正在用时间复利收割底薪，每秒都在到账。', state.privacyMode),
+      WorkStatus.offWork => _s('今日底薪已落袋，建议保持低调。', state.privacyMode),
+    };
+  }
+
+  void _openSettings(BuildContext context) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (_) => const SettingsScreen()),
     );
   }
 
@@ -465,13 +373,89 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 }
 
-// ══════════════════════════════════════════════════════════
-// 滑动关机按钮（iOS 滑动接听风格）
-// ══════════════════════════════════════════════════════════
+class _StatTile extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final String value;
+  final Color color;
+  final double rotation;
+
+  const _StatTile({
+    required this.icon,
+    required this.label,
+    required this.value,
+    required this.color,
+    required this.rotation,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Transform.rotate(
+      angle: rotation,
+      child: V2Card(
+        color: color,
+        padding: const EdgeInsets.all(13),
+        radius: 16,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Container(
+              width: 36,
+              height: 36,
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(999),
+                border: Border.all(color: V2Colors.black, width: 3),
+              ),
+              child: Icon(icon, color: Colors.black, size: 22),
+            ),
+            Text(
+              label.toUpperCase(),
+              style: V2Text.mono.copyWith(color: Colors.black, fontSize: 10),
+            ),
+            Text(
+              value,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: V2Text.title.copyWith(color: Colors.black, fontSize: 18),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _RoundSticker extends StatelessWidget {
+  final String text;
+  final Color color;
+
+  const _RoundSticker({required this.text, required this.color});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: 58,
+      height: 58,
+      decoration: BoxDecoration(
+        color: color,
+        shape: BoxShape.circle,
+        border: Border.all(color: Colors.white, width: 4),
+        boxShadow: const [
+          BoxShadow(color: V2Colors.black, spreadRadius: 3),
+          BoxShadow(color: V2Colors.black, offset: Offset(5, 5), blurRadius: 0),
+        ],
+      ),
+      child: Center(child: Text(text, style: const TextStyle(fontSize: 24))),
+    );
+  }
+}
 
 class _SlideToStop extends StatefulWidget {
   final String label;
   final VoidCallback onConfirmed;
+
   const _SlideToStop({required this.label, required this.onConfirmed});
 
   @override
@@ -480,11 +464,11 @@ class _SlideToStop extends StatefulWidget {
 
 class _SlideToStopState extends State<_SlideToStop>
     with SingleTickerProviderStateMixin {
-  static const _thumbSize = 48.0;
-  static const _trackHeight = 56.0;
-  static const _threshold = 0.82; // 滑过 82% 触发
+  static const _thumbSize = 64.0;
+  static const _trackHeight = 80.0;
+  static const _threshold = 0.82;
 
-  double _progress = 0.0; // 0~1
+  double _progress = 0.0;
   late AnimationController _snapCtrl;
   late Animation<double> _snapAnim;
   bool _triggered = false;
@@ -493,7 +477,9 @@ class _SlideToStopState extends State<_SlideToStop>
   void initState() {
     super.initState();
     _snapCtrl = AnimationController(
-        vsync: this, duration: const Duration(milliseconds: 300));
+      vsync: this,
+      duration: const Duration(milliseconds: 280),
+    );
     _snapAnim = Tween<double>(begin: 0, end: 0).animate(_snapCtrl)
       ..addListener(() => setState(() => _progress = _snapAnim.value));
   }
@@ -515,17 +501,19 @@ class _SlideToStopState extends State<_SlideToStop>
   void _onDragEnd(double trackWidth) {
     if (_triggered) return;
     if (_progress >= _threshold) {
-      // 滑满：触发关机
       setState(() => _triggered = true);
-      _snapAnim = Tween<double>(begin: _progress, end: 1.0)
-          .animate(CurvedAnimation(parent: _snapCtrl, curve: Curves.easeOut));
+      _snapAnim = Tween<double>(
+        begin: _progress,
+        end: 1.0,
+      ).animate(CurvedAnimation(parent: _snapCtrl, curve: Curves.easeOut));
       _snapCtrl
         ..reset()
         ..forward().whenComplete(widget.onConfirmed);
     } else {
-      // 未滑满：弹回起点
-      _snapAnim = Tween<double>(begin: _progress, end: 0.0)
-          .animate(CurvedAnimation(parent: _snapCtrl, curve: Curves.easeOut));
+      _snapAnim = Tween<double>(
+        begin: _progress,
+        end: 0.0,
+      ).animate(CurvedAnimation(parent: _snapCtrl, curve: Curves.easeOut));
       _snapCtrl
         ..reset()
         ..forward();
@@ -534,109 +522,93 @@ class _SlideToStopState extends State<_SlideToStop>
 
   @override
   Widget build(BuildContext context) {
-    return LayoutBuilder(builder: (ctx, constraints) {
-      final trackWidth = constraints.maxWidth;
-      final max = trackWidth - _thumbSize;
-      final dx = _progress * max;
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final trackWidth = constraints.maxWidth;
+        final max = trackWidth - _thumbSize;
+        final dx = _progress * max;
 
-      return GestureDetector(
-        onHorizontalDragUpdate: (d) => _onDragUpdate(d, trackWidth),
-        onHorizontalDragEnd: (_) => _onDragEnd(trackWidth),
-        child: SizedBox(
-          width: trackWidth,
-          height: _trackHeight,
-          child: Stack(
-            children: [
-              // 轨道背景
-              Positioned.fill(
-                child: Container(
-                  decoration: BoxDecoration(
-                    color: const Color(0xFF2A1010),
-                    borderRadius: BorderRadius.circular(16),
-                    border: Border.all(
-                        color: const Color(0xFFEF4444).withValues(alpha: 0.4)),
-                  ),
-                ),
-              ),
-              // 已划过区域高亮
-              Positioned(
-                left: 0,
-                top: 0,
-                bottom: 0,
-                width: dx + _thumbSize,
-                child: Container(
-                  decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      colors: [
-                        const Color(0xFFEF4444).withValues(alpha: 0.6),
-                        const Color(0xFFEF4444).withValues(alpha: 0.2),
+        return GestureDetector(
+          onHorizontalDragUpdate: (d) => _onDragUpdate(d, trackWidth),
+          onHorizontalDragEnd: (_) => _onDragEnd(trackWidth),
+          child: SizedBox(
+            width: trackWidth,
+            height: _trackHeight + 8,
+            child: Stack(
+              children: [
+                Positioned.fill(
+                  bottom: 8,
+                  child: Container(
+                    decoration: BoxDecoration(
+                      gradient: const LinearGradient(
+                        colors: [V2Colors.pink, V2Colors.yellow, V2Colors.cyan],
+                      ),
+                      borderRadius: BorderRadius.circular(999),
+                      border: Border.all(color: V2Colors.black, width: 4),
+                      boxShadow: const [
+                        BoxShadow(
+                          color: V2Colors.black,
+                          offset: Offset(8, 8),
+                          blurRadius: 0,
+                        ),
                       ],
                     ),
-                    borderRadius: BorderRadius.circular(16),
                   ),
                 ),
-              ),
-              // 提示文字（随进度淡出）
-              Positioned.fill(
-                child: Center(
-                  child: Opacity(
-                    opacity: (1 - _progress * 1.5).clamp(0.0, 1.0),
-                    child: Text(
-                      widget.label,
-                      style: TextStyle(
-                        color: Colors.white.withValues(alpha: 0.6),
-                        fontSize: 14,
-                        fontWeight: FontWeight.w600,
-                        letterSpacing: 0.5,
+                Positioned.fill(
+                  bottom: 8,
+                  child: Center(
+                    child: Opacity(
+                      opacity: (1 - _progress * 1.35).clamp(0.0, 1.0),
+                      child: Text(
+                        widget.label,
+                        style: V2Text.mono.copyWith(color: Colors.black),
                       ),
                     ),
                   ),
                 ),
-              ),
-              // 滑块
-              Positioned(
-                left: dx,
-                top: (_trackHeight - _thumbSize) / 2,
-                child: Container(
-                  width: _thumbSize,
-                  height: _thumbSize,
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFEF4444),
-                    borderRadius: BorderRadius.circular(12),
-                    boxShadow: [
-                      BoxShadow(
-                        color: const Color(0xFFEF4444).withValues(alpha: 0.5),
-                        blurRadius: 8,
-                        offset: const Offset(0, 2),
-                      ),
-                    ],
-                  ),
-                  child: const Center(
-                    child: Text('😂', style: TextStyle(fontSize: 24)),
+                Positioned(
+                  left: dx,
+                  top: 8,
+                  child: Container(
+                    width: _thumbSize,
+                    height: _thumbSize,
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      shape: BoxShape.circle,
+                      border: Border.all(color: V2Colors.black, width: 4),
+                      boxShadow: const [
+                        BoxShadow(
+                          color: V2Colors.black,
+                          offset: Offset(4, 4),
+                          blurRadius: 0,
+                        ),
+                      ],
+                    ),
+                    child: const Center(
+                      child: Text('😆', style: TextStyle(fontSize: 30)),
+                    ),
                   ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
-        ),
-      );
-    });
+        );
+      },
+    );
   }
 }
 
-// ══════════════════════════════════════════════════════════
-// 支付宝到账横幅
-// ══════════════════════════════════════════════════════════
-
-class _AlipayBanner extends StatefulWidget {
+class _BroadcastBanner extends StatefulWidget {
   final HourlyPayload payload;
-  const _AlipayBanner({required this.payload});
+
+  const _BroadcastBanner({required this.payload});
 
   @override
-  State<_AlipayBanner> createState() => _AlipayBannerState();
+  State<_BroadcastBanner> createState() => _BroadcastBannerState();
 }
 
-class _AlipayBannerState extends State<_AlipayBanner>
+class _BroadcastBannerState extends State<_BroadcastBanner>
     with SingleTickerProviderStateMixin {
   late AnimationController _ctrl;
   late Animation<Offset> _slide;
@@ -646,9 +618,13 @@ class _AlipayBannerState extends State<_AlipayBanner>
   void initState() {
     super.initState();
     _ctrl = AnimationController(
-        vsync: this, duration: const Duration(milliseconds: 350));
-    _slide = Tween<Offset>(begin: const Offset(0, -1), end: Offset.zero)
-        .animate(CurvedAnimation(parent: _ctrl, curve: Curves.easeOutCubic));
+      vsync: this,
+      duration: const Duration(milliseconds: 350),
+    );
+    _slide = Tween<Offset>(
+      begin: const Offset(0, -1),
+      end: Offset.zero,
+    ).animate(CurvedAnimation(parent: _ctrl, curve: Curves.easeOutCubic));
     _fade = CurvedAnimation(parent: _ctrl, curve: Curves.easeIn);
     _ctrl.forward();
   }
@@ -667,35 +643,27 @@ class _AlipayBannerState extends State<_AlipayBanner>
         opacity: _fade,
         child: Material(
           color: Colors.transparent,
-          child: Container(
+          child: V2Card(
+            color: V2Colors.cyan,
             padding: const EdgeInsets.all(14),
-            decoration: BoxDecoration(
-              color: const Color(0xFF1677FF),
-              borderRadius: BorderRadius.circular(16),
-              boxShadow: [
-                BoxShadow(
-                  color: const Color(0xFF1677FF).withValues(alpha: 0.4),
-                  blurRadius: 16,
-                  offset: const Offset(0, 4),
-                ),
-              ],
-            ),
+            radius: 18,
             child: Row(
               children: [
                 Container(
-                  width: 38,
-                  height: 38,
+                  width: 46,
+                  height: 46,
                   decoration: BoxDecoration(
                     color: Colors.white,
-                    borderRadius: BorderRadius.circular(10),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: V2Colors.black, width: 3),
                   ),
                   child: const Center(
                     child: Text(
-                      '支',
+                      '¥',
                       style: TextStyle(
-                          fontSize: 18,
-                          color: Color(0xFF1677FF),
-                          fontWeight: FontWeight.w900),
+                        fontSize: 24,
+                        fontWeight: FontWeight.w900,
+                      ),
                     ),
                   ),
                 ),
@@ -704,24 +672,23 @@ class _AlipayBannerState extends State<_AlipayBanner>
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Text('支付宝到账提醒',
-                          style: TextStyle(
-                              color: Colors.white70, fontSize: 11)),
-                      const SizedBox(height: 2),
+                      Text(
+                        '工资到账',
+                        style: V2Text.mono.copyWith(color: Colors.black),
+                      ),
+                      const SizedBox(height: 3),
                       Text(
                         '到账 ${widget.payload.amount} ${widget.payload.unit}',
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 17,
-                          fontWeight: FontWeight.w900,
-                        ),
+                        style: V2Text.title.copyWith(color: Colors.black),
                       ),
                       Text(
                         widget.payload.funText,
-                        style: const TextStyle(
-                            color: Colors.white70, fontSize: 11),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
+                        style: V2Text.body.copyWith(
+                          color: Colors.black87,
+                          fontSize: 12,
+                        ),
                       ),
                     ],
                   ),
@@ -735,77 +702,42 @@ class _AlipayBannerState extends State<_AlipayBanner>
   }
 }
 
-// ══════════════════════════════════════════════════════════
-// 金额滚动数字（股票跳动风格）
-// ══════════════════════════════════════════════════════════
-
 class _TickerAmount extends StatelessWidget {
   final double amount;
-  final Color color;
   final bool privacyMode;
 
-  const _TickerAmount({
-    required this.amount,
-    required this.color,
-    required this.privacyMode,
-  });
+  const _TickerAmount({required this.amount, required this.privacyMode});
 
   @override
   Widget build(BuildContext context) {
-    final numStr = amount.toStringAsFixed(2); // e.g. "286.40"
-
-    final bigStyle = TextStyle(
+    final numStr = amount.toStringAsFixed(2);
+    final bigStyle = V2Text.headline.copyWith(
       fontSize: 58,
-      color: color,
-      fontWeight: FontWeight.w900,
-      height: 1,
-    );
-    final prefixStyle = TextStyle(
-      fontSize: 28,
-      color: color,
-      fontWeight: FontWeight.w300,
-      height: 1,
-    );
-    final suffixStyle = TextStyle(
-      fontSize: 26,
-      color: color,
-      fontWeight: FontWeight.w700,
-      height: 1,
+      color: V2Colors.yellow,
+      shadows: [
+        Shadow(color: V2Colors.yellow.withValues(alpha: 0.55), blurRadius: 14),
+      ],
     );
 
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.center,
-      crossAxisAlignment: CrossAxisAlignment.baseline,
-      textBaseline: TextBaseline.alphabetic,
-      children: [
-        // 前缀 ¥ 或无
-        if (!privacyMode)
-          AnimatedDefaultTextStyle(
-            duration: const Duration(milliseconds: 300),
-            style: prefixStyle,
-            child: const Text('¥'),
-          ),
-        // 逐位数字
-        ...numStr.characters.map((ch) {
-          final isDigit = ch.codeUnitAt(0) >= 48 && ch.codeUnitAt(0) <= 57;
-          if (isDigit) {
-            return _TickerChar(char: ch, style: bigStyle);
-          }
-          // 小数点：固定显示，不动画
-          return Text(ch,
-              style: bigStyle.copyWith(
-                  fontSize: 36, fontWeight: FontWeight.w300));
-        }),
-        // 后缀 豆 或无
-        if (privacyMode) ...[
-          const SizedBox(width: 6),
-          AnimatedDefaultTextStyle(
-            duration: const Duration(milliseconds: 300),
-            style: suffixStyle,
-            child: const Text('豆'),
-          ),
+    return FittedBox(
+      fit: BoxFit.scaleDown,
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        crossAxisAlignment: CrossAxisAlignment.baseline,
+        textBaseline: TextBaseline.alphabetic,
+        children: [
+          if (!privacyMode) Text('¥', style: bigStyle.copyWith(fontSize: 36)),
+          ...numStr.characters.map((ch) {
+            final isDigit = ch.codeUnitAt(0) >= 48 && ch.codeUnitAt(0) <= 57;
+            if (isDigit) return _TickerChar(char: ch, style: bigStyle);
+            return Text(ch, style: bigStyle.copyWith(fontSize: 38));
+          }),
+          if (privacyMode) ...[
+            const SizedBox(width: 8),
+            Text('豆', style: bigStyle.copyWith(fontSize: 30)),
+          ],
         ],
-      ],
+      ),
     );
   }
 }
@@ -813,6 +745,7 @@ class _TickerAmount extends StatelessWidget {
 class _TickerChar extends StatefulWidget {
   final String char;
   final TextStyle style;
+
   const _TickerChar({required this.char, required this.style});
 
   @override
@@ -832,15 +765,17 @@ class _TickerCharState extends State<_TickerChar>
     _prev = widget.char;
     _cur = widget.char;
     _ctrl = AnimationController(
-        vsync: this, duration: const Duration(milliseconds: 180));
+      vsync: this,
+      duration: const Duration(milliseconds: 180),
+    );
     _anim = CurvedAnimation(parent: _ctrl, curve: Curves.easeOut);
   }
 
   @override
-  void didUpdateWidget(_TickerChar old) {
-    super.didUpdateWidget(old);
-    if (old.char != widget.char) {
-      _prev = old.char;
+  void didUpdateWidget(_TickerChar oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.char != widget.char) {
+      _prev = oldWidget.char;
       _cur = widget.char;
       _ctrl.forward(from: 0);
     }
@@ -854,31 +789,28 @@ class _TickerCharState extends State<_TickerChar>
 
   @override
   Widget build(BuildContext context) {
-    // 用 ClipRect 裁掉溢出，高度固定为字号 * 1.1
-    final h = (widget.style.fontSize ?? 58) * 1.1;
+    final height = (widget.style.fontSize ?? 58) * 1.1;
     return ClipRect(
       child: SizedBox(
-        height: h,
+        height: height,
         child: AnimatedBuilder(
           animation: _anim,
-          builder: (ctx, child) {
-            final v = _anim.value; // 0→1
+          builder: (context, child) {
+            final value = _anim.value;
             return Stack(
               alignment: Alignment.topCenter,
               children: [
-                // 旧数字：从原位向上飞出
                 Opacity(
-                  opacity: (1 - v).clamp(0.0, 1.0),
+                  opacity: (1 - value).clamp(0.0, 1.0),
                   child: Transform.translate(
-                    offset: Offset(0, -v * h),
+                    offset: Offset(0, -value * height),
                     child: Text(_prev, style: widget.style),
                   ),
                 ),
-                // 新数字：从下方飞入
                 Opacity(
-                  opacity: v.clamp(0.0, 1.0),
+                  opacity: value.clamp(0.0, 1.0),
                   child: Transform.translate(
-                    offset: Offset(0, (1 - v) * h),
+                    offset: Offset(0, (1 - value) * height),
                     child: Text(_cur, style: widget.style),
                   ),
                 ),
@@ -891,12 +823,9 @@ class _TickerCharState extends State<_TickerChar>
   }
 }
 
-// ══════════════════════════════════════════════════════════
-// 今日总结弹窗
-// ══════════════════════════════════════════════════════════
-
 class _SummaryDialog extends StatelessWidget {
   final WorkSummary summary;
+
   const _SummaryDialog({required this.summary});
 
   String _timeStr(DateTime dt) =>
@@ -910,42 +839,37 @@ class _SummaryDialog extends StatelessWidget {
     final amountText = summary.privacyMode
         ? '${summary.amount.toStringAsFixed(2)} 豆'
         : '¥${summary.amount.toStringAsFixed(2)}';
-    final amountLabel = _s('今日底薪到手', summary.privacyMode);
 
     return Dialog(
-      backgroundColor: const Color(0xFF1A1A1A),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
-      child: Padding(
-        padding: const EdgeInsets.all(28),
+      backgroundColor: Colors.transparent,
+      insetPadding: const EdgeInsets.all(24),
+      child: V2Window(
+        title: '下班成功',
+        titleColor: V2Colors.green,
+        bodyColor: V2Colors.beige,
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Text('🎉', style: TextStyle(fontSize: 44)),
+            const Text('🎉', style: TextStyle(fontSize: 48)),
             const SizedBox(height: 8),
-            const Text(
-              '恭喜下班！',
-              style: TextStyle(
-                  color: Colors.white,
-                  fontSize: 22,
-                  fontWeight: FontWeight.w900),
-            ),
-            const SizedBox(height: 4),
-            const Text(
-              '明天继续自嗨。',
-              style: TextStyle(color: Color(0xFF888888), fontSize: 14),
-            ),
-            const SizedBox(height: 24),
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: const Color(0xFF111111),
-                borderRadius: BorderRadius.circular(16),
+            Text(
+              '老板毫无察觉',
+              style: V2Text.headline.copyWith(
+                color: Colors.black,
+                fontSize: 26,
               ),
+            ),
+            const SizedBox(height: 18),
+            V2Card(
+              color: V2Colors.surface,
+              shadow: false,
               child: Column(
                 children: [
-                  _row(amountLabel, amountText,
-                      valueColor: _accent(summary.privacyMode)),
+                  _row(
+                    _s('今日底薪到手', summary.privacyMode),
+                    amountText,
+                    valueColor: V2Colors.yellow,
+                  ),
                   _row(_s('混底薪时长', summary.privacyMode), durationText),
                   _row('开机时间', _timeStr(summary.startTime)),
                   _row('关机时间', _timeStr(summary.endTime)),
@@ -953,23 +877,18 @@ class _SummaryDialog extends StatelessWidget {
                 ],
               ),
             ),
-            const SizedBox(height: 20),
-            SizedBox(
-              width: double.infinity,
-              height: 48,
-              child: ElevatedButton(
-                onPressed: () => Navigator.pop(context),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: _accent(summary.privacyMode),
-                  foregroundColor: Colors.black,
-                  shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12)),
-                  elevation: 0,
-                ),
-                child: const Text(
+            const SizedBox(height: 18),
+            V2Pressable(
+              onTap: () => Navigator.pop(context),
+              color: V2Colors.yellow,
+              padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 13),
+              child: Center(
+                child: Text(
                   '收好工资，回家躺平',
-                  style:
-                      TextStyle(fontWeight: FontWeight.w800, fontSize: 15),
+                  style: V2Text.title.copyWith(
+                    color: Colors.black,
+                    fontSize: 16,
+                  ),
                 ),
               ),
             ),
@@ -981,19 +900,20 @@ class _SummaryDialog extends StatelessWidget {
 
   Widget _row(String label, String value, {Color? valueColor}) {
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 5),
+      padding: const EdgeInsets.symmetric(vertical: 6),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Text(label,
-              style:
-                  const TextStyle(color: Color(0xFF888888), fontSize: 13)),
-          Text(
-            value,
-            style: TextStyle(
-              color: valueColor ?? Colors.white,
-              fontSize: 13,
-              fontWeight: FontWeight.w700,
+          Text(label, style: V2Text.body.copyWith(color: V2Colors.muted)),
+          const SizedBox(width: 14),
+          Flexible(
+            child: Text(
+              value,
+              textAlign: TextAlign.right,
+              style: V2Text.body.copyWith(
+                color: valueColor ?? V2Colors.onSurface,
+                fontWeight: FontWeight.w900,
+              ),
             ),
           ),
         ],
