@@ -1,0 +1,210 @@
+name: 开摆 多平台打包
+
+on:
+  push:
+    tags:
+      - 'v*'          # 推送 v1.0.0 这样的 tag 触发
+  workflow_dispatch:  # 也支持手动触发
+
+jobs:
+  # ─────────────────────────────────────────────
+  # Android APK
+  # ─────────────────────────────────────────────
+  android:
+    name: Android APK
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.44.2'
+          channel: stable
+          cache: true
+
+      - name: 安装依赖
+        run: flutter pub get
+
+      - name: 构建 APK
+        run: flutter build apk --release --split-per-abi
+
+      - name: 上传 APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: android-apk
+          path: build/app/outputs/flutter-apk/*.apk
+
+  # ─────────────────────────────────────────────
+  # macOS .app
+  # ─────────────────────────────────────────────
+  macos:
+    name: macOS App
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.44.2'
+          channel: stable
+          cache: true
+
+      - name: 安装依赖
+        run: flutter pub get
+
+      - name: 构建 macOS
+        run: flutter build macos --release
+
+      - name: 打包为 zip
+        run: |
+          cd build/macos/Build/Products/Release
+          zip -r ../../../../../kaipai-macos.zip 开摆.app
+
+      - name: 上传 macOS App
+        uses: actions/upload-artifact@v4
+        with:
+          name: macos-app
+          path: kaipai-macos.zip
+
+  # ─────────────────────────────────────────────
+  # Linux .tar.gz
+  # ─────────────────────────────────────────────
+  linux:
+    name: Linux Bundle
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: 安装系统依赖
+        run: |
+          sudo apt-get update -y
+          sudo apt-get install -y \
+            ninja-build \
+            libgtk-3-dev \
+            libblkid-dev \
+            liblzma-dev \
+            libglib2.0-dev \
+            libpango1.0-dev \
+            libatk1.0-dev \
+            libcairo2-dev \
+            libgdk-pixbuf2.0-dev \
+            libnotify-dev
+
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.44.2'
+          channel: stable
+          cache: true
+
+      - name: 安装依赖
+        run: flutter pub get
+
+      - name: 构建 Linux
+        run: flutter build linux --release
+
+      - name: 打包为 tar.gz
+        run: |
+          cd build/linux/x64/release
+          tar -czf ../../../../kaipai-linux.tar.gz bundle/
+
+      - name: 上传 Linux Bundle
+        uses: actions/upload-artifact@v4
+        with:
+          name: linux-bundle
+          path: kaipai-linux.tar.gz
+
+  # ─────────────────────────────────────────────
+  # Windows .zip（需要 nuget 路径修正）
+  # ─────────────────────────────────────────────
+  windows:
+    name: Windows App
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: 安装 NuGet
+        run: choco install nuget.commandline -y
+
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.44.2'
+          channel: stable
+          cache: true
+
+      - name: 安装依赖
+        run: flutter pub get
+
+      - name: 构建 Windows
+        run: flutter build windows --release
+
+      - name: 修正 cmake 安装路径并安装
+        shell: pwsh
+        run: |
+          $installDir = "build/windows/x64/runner/Release"
+          $cmakeInstall = "build/windows/x64/cmake_install.cmake"
+          if (Test-Path $cmakeInstall) {
+            $content = Get-Content $cmakeInstall -Raw
+            $fixed = $content -replace [regex]::Escape('C:/Program Files/kaibai'), $installDir.Replace('\','/')
+            Set-Content $cmakeInstall $fixed -Encoding UTF8
+            $cmake = (Get-Command cmake -ErrorAction SilentlyContinue)?.Source
+            if ($cmake) {
+              Set-Location build/windows/x64
+              & $cmake -DBUILD_TYPE=Release -P cmake_install.cmake
+            }
+          }
+
+      - name: 打包为 zip
+        shell: pwsh
+        run: |
+          Compress-Archive -Path build/windows/x64/runner/Release/* -DestinationPath kaipai-windows.zip
+
+      - name: 上传 Windows App
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-app
+          path: kaipai-windows.zip
+
+  # ─────────────────────────────────────────────
+  # 创建 Release 并附上所有产物
+  # ─────────────────────────────────────────────
+  release:
+    name: 发布 Release
+    needs: [android, macos, linux, windows]
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/')
+    permissions:
+      contents: write
+    steps:
+      - name: 下载所有产物
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts/
+
+      - name: 创建 GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          name: 开摆 ${{ github.ref_name }}
+          body: |
+            ## 开摆 ${{ github.ref_name }}
+
+            ### 下载
+            | 平台 | 文件 |
+            |---|---|
+            | Android | `*.apk`（按 CPU 架构分包） |
+            | macOS | `kaipai-macos.zip` |
+            | Linux | `kaipai-linux.tar.gz` |
+            | Windows | `kaipai-windows.zip` |
+
+            ### 说明
+            - Android：下载对应架构的 APK 直接安装
+            - macOS：解压后将 `.app` 拖入应用程序，首次打开需右键→打开
+            - Linux：解压后运行 `bundle/kaibai`
+            - Windows：解压后运行 `kaibai.exe`
+          files: artifacts/**/*
+          draft: false
+          prerelease: false
