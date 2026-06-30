@@ -63,7 +63,7 @@ jobs:
       - name: 打包为 zip
         run: |
           cd build/macos/Build/Products/Release
-          zip -r ../../../../../kaipai-macos.zip 开摆.app
+          zip -r ../../../../../kaipai-macos.zip *.app
 
       - name: 上传 macOS App
         uses: actions/upload-artifact@v4
