@@ -24,9 +24,8 @@ class NotificationService {
 
   final _plugin = FlutterLocalNotificationsPlugin();
   final _tts = FlutterTts();
-  bool _ttsAvailable = false;
+  bool _ttsConfigured = false;
   final inAppNotif = ValueNotifier<HourlyPayload?>(null);
-
 
   // 系统通知支持平台：Android / iOS / macOS / Linux
   // Windows 系统通知 flutter_local_notifications v18 未完整支持，用 in-app 替代
@@ -36,6 +35,12 @@ class NotificationService {
         Platform.isIOS ||
         Platform.isMacOS ||
         Platform.isLinux;
+  }
+
+  // TTS 支持平台：除 Linux / Web 外
+  bool get _supportsTts {
+    if (kIsWeb) return false;
+    return !Platform.isLinux;
   }
 
   Future<void> init() async {
@@ -73,18 +78,41 @@ class NotificationService {
   }
 
   Future<void> _initTts() async {
-    // flutter_tts 不支持 Linux，直接跳过
-    if (!kIsWeb && Platform.isLinux) return;
+    if (!_supportsTts) return;
+    // 安卓的 TTS 引擎是异步绑定的，这里只做最轻量的配置；
+    // 真正的语言/语速设置放到首次 speak 前惰性完成，避免引擎未就绪时抛异常。
+    try {
+      await _tts.awaitSpeakCompletion(true);
+    } catch (_) {}
+    // 尝试预热配置，失败也无所谓（speak 前会再配一次）
+    await _configureTts();
+  }
 
+  /// 惰性配置 TTS，幂等。引擎就绪后任意一次成功即可。
+  Future<bool> _configureTts() async {
+    if (!_supportsTts) return false;
+    if (_ttsConfigured) return true;
     try {
       await _tts.setLanguage('zh-CN');
       await _tts.setSpeechRate(0.85);
       await _tts.setVolume(1.0);
       await _tts.setPitch(1.0);
-      _ttsAvailable = true;
+      _ttsConfigured = true;
+      return true;
     } catch (_) {
-      _ttsAvailable = false;
+      // 引擎还没绑定，下次 speak 再试
+      return false;
     }
+  }
+
+  Future<void> _speak(String text) async {
+    if (!_supportsTts) return;
+    // 每次播报前确保已配置（首次或引擎重连后）
+    await _configureTts();
+    try {
+      await _tts.stop();
+      await _tts.speak(text);
+    } catch (_) {}
   }
 
   Future<void> requestPermissions() async {
@@ -114,14 +142,37 @@ class NotificationService {
     };
   }
 
-  Future<void> previewTTS(double hourlyRate, bool privacyMode, PaymentMethod method) async {
-    if (!_ttsAvailable) return;
-    final amount = hourlyRate.toStringAsFixed(2);
-    final unit = privacyMode ? '豆' : '元';
-    _tts.speak(_ttsText(amount, unit, method)).catchError((_) {});
+  String _notifTitle(PaymentMethod method, bool privacyMode) {
+    final t = switch (method) {
+      PaymentMethod.alipay => '支付宝到账提醒',
+      PaymentMethod.wechat => '微信收款提醒',
+    };
+    return _s(t, privacyMode);
+  }
+
+  /// 试听：与每小时播报走完全一致的流程（覆盖层 + 语音 + 系统通知）。
+  Future<void> previewTTS(
+      double hourlyRate, bool privacyMode, PaymentMethod method) async {
+    await _broadcast(
+      hourlyRate: hourlyRate,
+      privacyMode: privacyMode,
+      paymentMethod: method,
+    );
   }
 
   Future<void> triggerHourlyBroadcast({
+    required double hourlyRate,
+    required bool privacyMode,
+    required PaymentMethod paymentMethod,
+  }) async {
+    await _broadcast(
+      hourlyRate: hourlyRate,
+      privacyMode: privacyMode,
+      paymentMethod: paymentMethod,
+    );
+  }
+
+  Future<void> _broadcast({
     required double hourlyRate,
     required bool privacyMode,
     required PaymentMethod paymentMethod,
@@ -139,14 +190,12 @@ class NotificationService {
     );
     inAppNotif.value = payload;
 
-    // TTS（除 Linux 外）
-    if (_ttsAvailable) {
-      _tts.speak(_ttsText(amountStr, unit, paymentMethod)).catchError((_) {});
-    }
+    // TTS 语音播报
+    _speak(_ttsText(amountStr, unit, paymentMethod));
 
-    // 系统通知（Android / iOS / macOS / Linux）
+    // 系统通知
     if (_supportsSystemNotif) {
-      _showSystemNotification(amountStr, unit, funText, privacyMode);
+      _showSystemNotification(amountStr, unit, paymentMethod, privacyMode);
     }
 
     Future.delayed(const Duration(seconds: 4), () {
@@ -159,11 +208,15 @@ class NotificationService {
   Future<void> _showSystemNotification(
     String amount,
     String unit,
-    String subtitle,
+    PaymentMethod method,
     bool privacyMode,
   ) async {
-    final title = _s('支付宝到账提醒', privacyMode);
-    final body = _s('支付宝到账 $amount $unit — $subtitle', privacyMode);
+    final title = _notifTitle(method, privacyMode);
+    final word = switch (method) {
+      PaymentMethod.alipay => '支付宝到账',
+      PaymentMethod.wechat => '微信收款',
+    };
+    final body = _s('$word $amount $unit', privacyMode);
 
     NotificationDetails details;
 
@@ -201,7 +254,7 @@ class NotificationService {
     if (_supportsSystemNotif) {
       await _plugin.cancelAll().catchError((_) {});
     }
-    if (_ttsAvailable) _tts.stop().catchError((_) {});
+    if (_supportsTts) _tts.stop().catchError((_) {});
     inAppNotif.value = null;
   }
 
