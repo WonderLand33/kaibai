@@ -16,6 +16,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
   late int _restDays;
   late double _workHours;
   late PaymentMethod _paymentMethod;
+  late int _withdrawDay;
 
   // 月薪快捷预设
   static const _salaryPresets = [3000, 5000, 6000, 8000, 10000, 12000, 15000, 20000, 30000];
@@ -52,6 +53,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     _restDays = s.monthlyRestDays;
     _workHours = s.dailyWorkHours;
     _paymentMethod = s.paymentMethod;
+    _withdrawDay = s.withdrawDay;
     _salaryInputCtrl = TextEditingController();
     _restInputCtrl = TextEditingController();
     _hoursInputCtrl = TextEditingController();
@@ -94,6 +96,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
               _buildWorkHoursSection(),
               const SizedBox(height: 28),
               _buildPaymentMethodSection(),
+              const SizedBox(height: 28),
+              _buildWithdrawSection(),
               const SizedBox(height: 28),
               _buildPreview(),
               const SizedBox(height: 28),
@@ -415,6 +419,99 @@ class _SettingsScreenState extends State<SettingsScreen> {
     );
   }
 
+  // ─── 提现日期 ───
+
+  static const _withdrawOptions = [
+    _WithdrawOption(day: 1,  label: '每月1号',  sub: '月初'),
+    _WithdrawOption(day: 10, label: '每月10号', sub: '月中'),
+    _WithdrawOption(day: 15, label: '每月15号', sub: '中旬'),
+    _WithdrawOption(day: 0,  label: '月底',    sub: '最后一天'),
+  ];
+
+  Widget _buildWithdrawSection() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _sectionTitle('💸', '工资提现日'),
+        const SizedBox(height: 6),
+        const Text(
+          '选择每月工资到账的日期，首页将为你倒计时',
+          style: TextStyle(color: Color(0xFF666666), fontSize: 12),
+        ),
+        const SizedBox(height: 14),
+        GridView.count(
+          crossAxisCount: 2,
+          shrinkWrap: true,
+          physics: const NeverScrollableScrollPhysics(),
+          crossAxisSpacing: 10,
+          mainAxisSpacing: 10,
+          childAspectRatio: 3.2,
+          children: _withdrawOptions.map((o) {
+            final selected = _withdrawDay == o.day;
+            return GestureDetector(
+              onTap: () => setState(() => _withdrawDay = o.day),
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 150),
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                decoration: BoxDecoration(
+                  color: selected
+                      ? const Color(0xFFFFD700).withValues(alpha: 0.12)
+                      : const Color(0xFF1A1A1A),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(
+                    color: selected ? const Color(0xFFFFD700) : const Color(0xFF333333),
+                    width: selected ? 1.5 : 1,
+                  ),
+                ),
+                child: Row(
+                  children: [
+                    if (selected)
+                      const Icon(Icons.check_circle, color: Color(0xFFFFD700), size: 16)
+                    else
+                      const Icon(Icons.radio_button_unchecked, color: Color(0xFF555555), size: 16),
+                    const SizedBox(width: 8),
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Text(
+                          o.label,
+                          style: TextStyle(
+                            color: selected ? const Color(0xFFFFD700) : Colors.white,
+                            fontSize: 14,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                        Text(
+                          o.sub,
+                          style: const TextStyle(color: Color(0xFF666666), fontSize: 11),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            );
+          }).toList(),
+        ),
+        if (_withdrawDay >= 0) ...[
+          const SizedBox(height: 10),
+          GestureDetector(
+            onTap: () => setState(() => _withdrawDay = -1),
+            child: const Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(Icons.close_rounded, color: Color(0xFF555555), size: 14),
+                SizedBox(width: 4),
+                Text('清除', style: TextStyle(color: Color(0xFF555555), fontSize: 12)),
+              ],
+            ),
+          ),
+        ],
+      ],
+    );
+  }
+
   // ─── 实时预览 ───
 
   Widget _buildPreview() {
@@ -573,6 +670,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     final state = context.read<AppState>();
     state.updateSettings(salary: _salary, restDays: _restDays, workHours: _workHours);
     state.setPaymentMethod(_paymentMethod);
+    state.setWithdrawDay(_withdrawDay);
     Navigator.pop(context);
     ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
       content: Text('设置已保存 🎉'),
@@ -580,6 +678,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
       behavior: SnackBarBehavior.floating,
     ));
   }
+}
+
+class _WithdrawOption {
+  final int day;
+  final String label;
+  final String sub;
+  const _WithdrawOption({required this.day, required this.label, required this.sub});
 }
 
 class _Option {

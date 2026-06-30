@@ -130,6 +130,10 @@ class _HomeScreenState extends State<HomeScreen> {
           _buildPrimaryAction(context, state),
           const SizedBox(height: 20),
           _buildStatsGrid(state),
+          if (state.withdrawDay >= 0) ...[
+            const SizedBox(height: 22),
+            _buildWithdrawCard(state),
+          ],
           const SizedBox(height: 24),
           const V2Sticker(text: '躺着也能赚钱', angle: -0.11),
         ],
@@ -265,6 +269,83 @@ class _HomeScreenState extends State<HomeScreen> {
           rotation: -0.018,
         ),
       ],
+    );
+  }
+
+  Widget _buildWithdrawCard(AppState state) {
+    final date = state.nextWithdrawDate!;
+    final days = state.daysUntilWithdraw;
+    final dateStr =
+        '${date.month} 月 ${date.day} 日';
+    final dayLabel = state.withdrawDay == 0
+        ? '月底'
+        : '每月 ${state.withdrawDay} 号';
+
+    final urgentColor = days <= 3 ? V2Colors.green : V2Colors.yellow;
+
+    return V2Window(
+      title: _s('💸 工资提现日', state.privacyMode),
+      titleColor: urgentColor,
+      child: Row(
+        children: [
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  dateStr,
+                  style: V2Text.headline.copyWith(
+                    color: urgentColor,
+                    fontSize: 26,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  dayLabel,
+                  style: V2Text.mono.copyWith(
+                    color: V2Colors.muted,
+                    fontSize: 12,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+            decoration: BoxDecoration(
+              color: urgentColor,
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(color: V2Colors.black, width: 3),
+              boxShadow: const [
+                BoxShadow(
+                  color: V2Colors.black,
+                  offset: Offset(4, 4),
+                  blurRadius: 0,
+                ),
+              ],
+            ),
+            child: Column(
+              children: [
+                Text(
+                  days == 0 ? '今天！' : '$days',
+                  style: V2Text.headline.copyWith(
+                    color: Colors.black,
+                    fontSize: days == 0 ? 18 : 28,
+                  ),
+                ),
+                if (days > 0)
+                  Text(
+                    '天后',
+                    style: V2Text.mono.copyWith(
+                      color: Colors.black,
+                      fontSize: 12,
+                    ),
+                  ),
+              ],
+            ),
+          ),
+        ],
+      ),
     );
   }
 
