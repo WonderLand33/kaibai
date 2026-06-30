@@ -93,7 +93,8 @@ jobs:
             libatk1.0-dev \
             libcairo2-dev \
             libgdk-pixbuf2.0-dev \
-            libnotify-dev
+            libnotify-dev \
+            libayatana-appindicator3-dev
 
       - uses: subosito/flutter-action@v2
         with:
