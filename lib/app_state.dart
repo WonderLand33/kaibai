@@ -33,6 +33,9 @@ class AppState extends ChangeNotifier {
   bool privacyMode = false;
   PaymentMethod paymentMethod = PaymentMethod.alipay;
 
+  // ─── 提现设置（-1 = 未设置, 0 = 月底, 1/10/15 = 每月对应日）───
+  int withdrawDay = -1;
+
   // ─── 工作状态 ───
   WorkStatus status = WorkStatus.idle;
   DateTime? workStartTime;
@@ -84,6 +87,33 @@ class AppState extends ChangeNotifier {
   String fmtAmount(double v) {
     if (privacyMode) return '${v.toStringAsFixed(2)} 豆';
     return '¥${v.toStringAsFixed(2)}';
+  }
+
+  // 下次可提现日期（null = 未设置）
+  DateTime? get nextWithdrawDate {
+    if (withdrawDay < 0) return null;
+    final now = DateTime.now();
+    if (withdrawDay == 0) {
+      final lastDayThisMonth = DateTime(now.year, now.month + 1, 0);
+      if (now.day < lastDayThisMonth.day) return lastDayThisMonth;
+      return DateTime(now.year, now.month + 2, 0);
+    } else {
+      if (now.day <= withdrawDay) {
+        return DateTime(now.year, now.month, withdrawDay);
+      }
+      return DateTime(now.year, now.month + 1, withdrawDay);
+    }
+  }
+
+  // 距下次提现剩余天数
+  int get daysUntilWithdraw {
+    final d = nextWithdrawDate;
+    if (d == null) return -1;
+    final today = DateTime.now();
+    final diff = DateTime(d.year, d.month, d.day)
+        .difference(DateTime(today.year, today.month, today.day))
+        .inDays;
+    return diff < 0 ? 0 : diff;
   }
 
   String fmtRate(double v) {
@@ -172,6 +202,12 @@ class AppState extends ChangeNotifier {
     notifyListeners();
   }
 
+  void setWithdrawDay(int day) {
+    withdrawDay = day;
+    _saveSettings();
+    notifyListeners();
+  }
+
   // ─── 计时器 ───
 
   void _startTicker() {
@@ -208,6 +244,7 @@ class AppState extends ChangeNotifier {
       (e) => e.name == pmStr,
       orElse: () => PaymentMethod.alipay,
     );
+    withdrawDay = p.getInt('withdrawDay') ?? -1;
     _settingsValid = monthlySalary > 0;
 
     _accumulated = Duration(seconds: p.getInt('accumulatedSeconds') ?? 0);
@@ -254,6 +291,7 @@ class AppState extends ChangeNotifier {
     await p.setDouble('dailyWorkHours', dailyWorkHours);
     await p.setBool('privacyMode', privacyMode);
     await p.setString('paymentMethod', paymentMethod.name);
+    await p.setInt('withdrawDay', withdrawDay);
   }
 
   @override
